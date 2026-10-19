@@ -1,6 +1,6 @@
 # CAIR — Smarter Air Purifier (ESP32-S3 + FreeRTOS)
 
-Firmware PlatformIO untuk ESP32-S3-DevKitC-1 (+ GPIO shield khurslabs):
+Firmware PlatformIO untuk ESP32-S3-DevKitC-1 (+ GPIO shield khurslabs) atau WEMOS D1 R32:
 baca PM2.5/PM10 (SDS011, UART1), suhu/RH (AHT21) dan eCO2/TVOC (ENS160) via I2C, atur kipas AUTO / POT / FIXED,
 tampil di OLED 0.96", RGB onboard, app RemoteXY (BLE) dan dashboard web (WiFi). Console + log di UART0 (port USB "UART").
 Selama sensor belum ada, `tools/sds011_sim.py` berperan sebagai SDS011.
@@ -29,7 +29,40 @@ tools/embed_web.py     web/index.html -> include/web_index.h (otomatis saat buil
 tools/sds011_sim.py    simulator SDS011
 ```
 
-## Wiring (default `config.h`)
+## Dua board, satu kode
+
+| Environment | Board | Build & upload |
+|---|---|---|
+| `esp32-s3-devkitc-1` (default) | ESP32-S3-DevKitC-1 N16R8 + shield khurslabs | `pio run -e esp32-s3-devkitc-1 -t upload` |
+| `d1_r32` | WEMOS D1 R32 (ESP32-WROOM-32) | `pio run -e d1_r32 -t upload` |
+
+Di VS Code pilih environment lewat status bar bawah (`env:...`). Peta pin tiap board ada di `include/config.h`
+(blok `#if defined(BOARD_D1R32)`); semua logika lain sama.
+
+### Wiring WEMOS D1 R32
+
+| Fungsi | GPIO | Label header |
+|---|---|---|
+| Log / console / upload | 1 / 3 | USB (CH340) |
+| SDS011 TX → ESP RX | 16 | D5 |
+| ESP TX → SDS011 RX | 17 | D4 |
+| I2C SDA / SCL | 21 / 22 | SDA / SCL |
+| PWM kipas | 25 | D3 |
+| Relay daya kipas (modul eksternal) | 26 | D2 |
+| TACH kipas + pull-up 10k ke 3V3 | 27 | D6 |
+| Potensio (ADC1) | 34 | A3 |
+| Tombol mode (ke GND) | 14 | D7 |
+| LED indikator | 2 | LED biru onboard |
+
+Catatan D1 R32:
+- Shield khurslabs tidak bisa dipasang: pakai modul relay 5 V + adaptor 12 V terpisah untuk kipas, GND disatukan.
+  Modul relay "low-level trigger" → set `RELAY_ACTIVE_HIGH 0`.
+- LED satu warna memakai pola kedip: singkat tiap 3 s = aman, 1 Hz = mulai naik, 2.5 Hz = bahaya,
+  menyala terus = sangat bahaya, kedip ganda = sensor PM error, sangat cepat = kipas macet.
+  Punya WS2812? sambungkan DIN ke GPIO2 (atau pin lain) dan set `LED_WS2812 1`.
+- RAM lebih kecil (tanpa PSRAM). Perhatikan `heap free` di log boot; bila < ~40 KB, matikan BLE atau web.
+
+## Wiring ESP32-S3 (default `config.h`)
 
 | Fungsi | GPIO | Catatan |
 |---|---|---|

@@ -1,60 +1,91 @@
 #pragma once
 // =====================================================================
 //  CAIR - konfigurasi hardware & default
-//  Pin map di bawah = default DevKitC-1. Sesuaikan dengan header di
-//  GPIO shield khurslabs bila label pin-nya berbeda.
+//  Peta pin dipilih otomatis per environment PlatformIO:
+//    esp32-s3-devkitc-1 : ESP32-S3-DevKitC-1 + GPIO shield khurslabs
+//    d1_r32             : WEMOS D1 R32 (build flag -DBOARD_D1R32)
+//  Cocokkan dengan label header board/shield bila berbeda.
 // =====================================================================
 
-// ---- UART0 : serial monitor / console (port USB "UART", sama dgn upload) ----
-#define PIN_LOG_RX        44      // U0RXD
-#define PIN_LOG_TX        43      // U0TXD
+#if defined(BOARD_D1R32)
+// ===================== WEMOS D1 R32 (ESP32-WROOM-32) ==================
+//  Label header D1 R32 -> GPIO:
+//   D2=26 D3=25 D4=17 D5=16 D6=27 D7=14 D8=12 D9=13 D10=5 D11=23 D12=19 D13=18
+//   A0=2 A1=4 A2=35 A3=34 A4=36 A5=39   SDA=21 SCL=22
+//  Hindari: GPIO6-11 (flash), ADC2 (GPIO0/2/4/12-15/25-27) untuk analogRead saat WiFi aktif,
+//           GPIO12 sebagai input saat boot (strapping tegangan flash).
+  #define BOARD_NAME        "WEMOS D1 R32"
+  #define PIN_LOG_RX        3       // U0RXD (USB CH340)
+  #define PIN_LOG_TX        1       // U0TXD
+  #define PIN_SDS_RX        16      // D5  <- TX sensor / TX USB-TTL
+  #define PIN_SDS_TX        17      // D4  -> RX sensor / RX USB-TTL
+  #define SDS_SERIAL        Serial2 // pin bawaan UART1 (9/10) dipakai flash
+  #define PIN_I2C_SDA       21      // header SDA
+  #define PIN_I2C_SCL       22      // header SCL
+  #define PIN_FAN_PWM       25      // D3
+  #define PIN_FAN_RELAY     26      // D2 -> IN modul relay 5V (eksternal)
+  #define PIN_FAN_TACH      27      // D6 + pull-up 10k ke 3V3
+  #define PIN_POT           34      // A3 (ADC1, input-only) - aman saat WiFi aktif
+  #define PIN_BTN_MODE      14      // D7, tombol eksternal ke GND (D1 R32 tanpa tombol BOOT)
+  #define PIN_RGB           2       // LED biru onboard (atau DIN WS2812 eksternal)
+  #define LED_WS2812        0       // 0 = LED satu warna (pola kedip), 1 = WS2812
+  #define RELAY_ACTIVE_HIGH 1       // modul relay "low-level trigger": set 0
+#else
+// ================= ESP32-S3-DevKitC-1 + shield khurslabs ===============
+  #define BOARD_NAME        "ESP32-S3-DevKitC-1"
+  #define PIN_LOG_RX        44      // U0RXD (port USB "UART", sama dgn upload)
+  #define PIN_LOG_TX        43      // U0TXD
+  #define PIN_SDS_RX        18      // <- TX sensor / TX USB-TTL
+  #define PIN_SDS_TX        17      // -> RX sensor / RX USB-TTL
+  #define SDS_SERIAL        Serial1
+  #define PIN_I2C_SDA       8
+  #define PIN_I2C_SCL       9
+  #define PIN_FAN_PWM       5
+  #define PIN_FAN_RELAY     47      // Relay1 shield = GPIO47, Relay2 = GPIO21
+  #define PIN_FAN_TACH      7       // + pull-up 10k ke 3V3
+  #define PIN_POT           4       // ADC1_CH3
+  #define PIN_BTN_MODE      0       // tombol BOOT
+  #define PIN_RGB           48      // RGB onboard WS2812: v1.0 = 48, v1.1 = 38
+  #define LED_WS2812        1
+  #define RELAY_ACTIVE_HIGH 1       // 0 jika relay ON saat pin LOW
+#endif
+
+// ---- UART0 : serial monitor / console ----
 #define LOG_BAUD          115200
-// dgn CDC_ON_BOOT=0, `Serial` = UART0 (Serial0 tidak ada di core lama)
+// dgn CDC_ON_BOOT=0 (S3) atau ESP32 klasik, `Serial` = UART0
 #if ARDUINO_USB_CDC_ON_BOOT
   #define LOG_SERIAL      Serial0
 #else
   #define LOG_SERIAL      Serial
 #endif
-
-// ---- UART1 : SDS011 (atau simulator via USB-TTL 3.3V) ----
-#define PIN_SDS_RX        18      // <- TX sensor / TX USB-TTL
-#define PIN_SDS_TX        17      // -> RX sensor / RX USB-TTL
-#define SDS_BAUD          9600
-#define SDS_SERIAL        Serial1
 #define LOG_VERBOSE       1       // 1 = log tiap frame sensor/reply, 0 = event penting saja
 
+// ---- SDS011 ----
+#define SDS_BAUD          9600
+
 // ---- I2C bus: OLED 0.96" SSD1306 128x64 + ENS160 (0x53) + AHT21 (0x38) ----
-#define PIN_I2C_SDA       8
-#define PIN_I2C_SCL       9
 #define OLED_ADDR         0x3C
 #define OLED_W            128
 #define OLED_H            64
 
-// ---- Kipas (PWM -> gate MOSFET / pin PWM kipas 4-wire) ----
-#define PIN_FAN_PWM       5
+// ---- Kipas 4-pin (PWM langsung ke pin PWM kipas) ----
 #define FAN_PWM_FREQ      25000   // 25 kHz (standar kipas PC, tak terdengar)
 #define FAN_PWM_RES       10      // bit
 #define FAN_PWM_CH        0       // dipakai di core Arduino 2.x
 #define FAN_PWM_INVERT    0       // 1 jika driver membalik logika
 #define FAN_KICK_MS       300     // dorongan 100% saat start dari 0 (0 = off)
 
-// ---- Relay daya kipas 12V (Relay1 shield khurslabs) ----
+// ---- Relay daya kipas 12V ----
 #define FAN_USE_RELAY     1       // 0 = tanpa relay
-#define PIN_FAN_RELAY     47      // Relay1 = GPIO47, Relay2 = GPIO21
-#define RELAY_ACTIVE_HIGH 1       // 0 jika relay ON saat pin LOW
 #define FAN_RELAY_OFF_MS  5000    // relay OFF setelah kipas 0% selama ini (anti klik)
 
 // ---- Tachometer kipas 4-pin (kabel TACH, open-collector) ----
-#define PIN_FAN_TACH      7       // WAJIB pull-up 10k ke 3V3 (jangan ke 5V/12V)
 #define FAN_TACH_PPR      2       // pulsa per putaran (standar kipas PC = 2)
 #define FAN_TACH_MIN_US   2000    // filter glitch: abaikan pulsa < 2 ms (maks ~15000 rpm)
 #define FAN_STALL_MIN_PCT 20      // >= duty ini tapi rpm 0 selama 3 s -> peringatan macet
 
-// ---- Input manual & indikator ----
-#define PIN_POT           4       // ADC1_CH3, wiper potensio (0-3.3V)
-#define PIN_BTN_MODE      0       // tombol BOOT: ganti mode AUTO/POT/FIXED
-#define PIN_RGB           48      // RGB onboard WS2812: v1.0 = 48, v1.1 = 38
-#define RGB_BRIGHTNESS    40      // 0-255 (LED onboard sangat terang)
+// ---- Indikator ----
+#define RGB_BRIGHTNESS    40      // 0-255, hanya untuk WS2812 (LED onboard sangat terang)
 
 // ---- eCO2 (ENS160) : level untuk peringatan & saran ventilasi ----
 #define CO2_TH1           800     // >= : SEDANG

@@ -2,7 +2,7 @@
 #include "sds011.h"
 #include "log.h"
 
-// UART1 -> SDS011 (SDS_SERIAL, lihat config.h)
+// SDS011 di SDS_SERIAL (S3: Serial1, D1 R32: Serial2), lihat config.h
 void sensorTask(void*) {
   SDS_SERIAL.begin(SDS_BAUD, SERIAL_8N1, PIN_SDS_RX, PIN_SDS_TX);
   Sds011 sds;
@@ -15,7 +15,7 @@ void sensorTask(void*) {
   uint16_t qInt;
   { Lock l; queryMode = g_cfg.sdsQueryMode; qInt = g_cfg.sdsQueryIntervalS; }
 
-  LOG("[sds] UART1 aktif @%d, kirim init: work, period 0, mode %s", SDS_BAUD, queryMode ? "query" : "active");
+  LOG("[sds] UART aktif @%d, kirim init: work, period 0, mode %s", SDS_BAUD, queryMode ? "query" : "active");
   sds.setWorking(true);            vTaskDelay(pdMS_TO_TICKS(100));
   sds.setPeriod(0);                vTaskDelay(pdMS_TO_TICKS(100));
   sds.setReportingMode(queryMode); vTaskDelay(pdMS_TO_TICKS(100));

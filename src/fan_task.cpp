@@ -67,8 +67,12 @@ static void IRAM_ATTR tachIsr() {
   }
 }
 
-// ---------- RGB onboard (WS2812) ----------
+// ---------- indikator: RGB WS2812 (S3) atau LED satu warna (D1 R32) ----------
 static void rgbWrite(uint8_t r, uint8_t g, uint8_t b) {
+#if !LED_WS2812
+  digitalWrite(PIN_RGB, (r | g | b) ? HIGH : LOW);
+  return;
+#endif
   r = (uint16_t)r * RGB_BRIGHTNESS / 255;
   g = (uint16_t)g * RGB_BRIGHTNESS / 255;
   b = (uint16_t)b * RGB_BRIGHTNESS / 255;
@@ -84,10 +88,26 @@ static void rgbWrite(uint8_t r, uint8_t g, uint8_t b) {
 //  2. sensor PM error/belum : ungu kedip 1 Hz
 //  3. level terburuk dari kategori PM2.5 dan level eCO2:
 //     0 hijau, 1 kuning, 2 oranye, 3 merah kedip 2 Hz
+// LED satu warna (LED_WS2812 0) memakai pola kedip:
+//  level 0 kedip singkat tiap 3 s · 1 kedip 1 Hz · 2 kedip 2.5 Hz · 3 menyala terus
+//  sensor PM error: kedip ganda tiap 2 s · kipas macet: kedip sangat cepat 10 Hz
 static void rgbUpdate(uint32_t now, bool pmFresh, uint8_t pmCat, bool co2Valid, uint8_t co2Lvl,
                       bool stalled) {
   static uint32_t lastKey = 0xFFFFFFFF;
   uint8_t r = 0, g = 0, b = 0;
+#if !LED_WS2812
+  bool on;
+  uint8_t lvl = pmCat;
+  if (co2Valid && co2Lvl > lvl) lvl = co2Lvl;
+  if (stalled)       on = (now / 50) & 1;
+  else if (!pmFresh) { uint32_t ph = now % 2000; on = ph < 100 || (ph >= 250 && ph < 350); }
+  else if (lvl == 0) on = (now % 3000) < 100;
+  else if (lvl == 1) on = (now / 500) & 1;
+  else if (lvl == 2) on = (now / 200) & 1;
+  else               on = true;
+  if ((uint32_t)on != lastKey) { lastKey = on; rgbWrite(on, 0, 0); }
+  return;
+#endif
   if (stalled) {
     if ((now / 150) & 1) r = 255; else b = 255;
   } else if (!pmFresh) {
@@ -121,8 +141,13 @@ void fanTask(void*) {
   pwmWritePct(0);
   analogReadResolution(12);
   pinMode(PIN_BTN_MODE, INPUT_PULLUP);
+#if !LED_WS2812
+  pinMode(PIN_RGB, OUTPUT);
+  LOG("[fan] LED indikator GPIO%d (satu warna, pola kedip)", PIN_RGB);
+#else
+  LOG("[fan] RGB WS2812 GPIO%d, brightness %d", PIN_RGB, RGB_BRIGHTNESS);
+#endif
   rgbWrite(0, 0, 0);
-  LOG("[fan] RGB onboard GPIO%d, brightness %d", PIN_RGB, RGB_BRIGHTNESS);
 #if FAN_USE_RELAY
   pinMode(PIN_FAN_RELAY, OUTPUT);
   relayWrite(false);
@@ -233,7 +258,7 @@ void fanTask(void*) {
       lastCat = cat;
     }
 
-    // indikator RGB onboard
+    // indikator LED (RGB WS2812 atau satu warna)
     bool co2Ok = envCo2Valid(env, now);
     rgbUpdate(now, fresh, cat, co2Ok, co2Ok ? co2Level(env.eco2) : 0, stalled);
 

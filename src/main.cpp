@@ -1,7 +1,7 @@
 // =====================================================================
 //  CAIR - Smarter Air Purifier (ESP32-S3 + FreeRTOS)
 //  Task:
-//    sensor  (core1, prio 3) : UART1 <-> SDS011, parse, moving average
+//    sensor  (core1, prio 3) : SDS011 (UART1 S3 / UART2 D1 R32), parse, moving average
 //    fan     (core1, prio 4) : AUTO/POT/FIXED, slew, PWM 25 kHz, LED, tombol
 //    display (core0, prio 1) : OLED SSD1306 128x64, 4 Hz
 //    console (core0, prio 2) : UART0 CLI + log status
@@ -55,6 +55,7 @@ void setup() {
   LOG_SERIAL.println("==================================================");
 
   LOG("[sys] reset   : %s", resetReasonStr(esp_reset_reason()));
+  LOG("[sys] board   : %s", BOARD_NAME);
   LOG("[sys] chip    : %s rev%d, %d core, %lu MHz", ESP.getChipModel(), ESP.getChipRevision(),
       ESP.getChipCores(), (unsigned long)ESP.getCpuFreqMHz());
   LOG("[sys] flash   : %lu KB, PSRAM %lu KB", (unsigned long)(ESP.getFlashChipSize() / 1024),
@@ -62,10 +63,11 @@ void setup() {
   LOG("[sys] heap    : free %lu / %lu B", (unsigned long)ESP.getFreeHeap(), (unsigned long)ESP.getHeapSize());
   LOG("[sys] SDK     : %s", ESP.getSdkVersion());
   LOG("[pin] UART0 console RX=%d TX=%d @%d", PIN_LOG_RX, PIN_LOG_TX, LOG_BAUD);
-  LOG("[pin] UART1 SDS011  RX=%d TX=%d @%d", PIN_SDS_RX, PIN_SDS_TX, SDS_BAUD);
+  LOG("[pin] SDS011 RX=%d TX=%d @%d", PIN_SDS_RX, PIN_SDS_TX, SDS_BAUD);
   LOG("[pin] I2C SDA=%d SCL=%d OLED=0x%02X", PIN_I2C_SDA, PIN_I2C_SCL, OLED_ADDR);
-  LOG("[pin] FAN PWM=%d (%d Hz, %d bit)  POT=%d  RGB=%d  BTN=%d",
-      PIN_FAN_PWM, FAN_PWM_FREQ, FAN_PWM_RES, PIN_POT, PIN_RGB, PIN_BTN_MODE);
+  LOG("[pin] FAN PWM=%d (%d Hz, %d bit)  TACH=%d  RELAY=%d", PIN_FAN_PWM, FAN_PWM_FREQ, FAN_PWM_RES,
+      PIN_FAN_TACH, PIN_FAN_RELAY);
+  LOG("[pin] POT=%d  BTN=%d  LED=%d (%s)", PIN_POT, PIN_BTN_MODE, PIN_RGB, LED_WS2812 ? "WS2812" : "satu warna");
 
   g_mtx    = xSemaphoreCreateMutex();
   g_i2cMtx = xSemaphoreCreateMutex();
