@@ -7,6 +7,8 @@
 // =====================================================================
 #include "app.h"
 #include "log.h"
+
+#if ENABLE_WEB
 #include <WiFi.h>
 #include <WebServer.h>
 #include <DNSServer.h>
@@ -515,3 +517,13 @@ void webTask(void*) {
     vTaskDelay(pdMS_TO_TICKS(2));
   }
 }
+
+#else  // !ENABLE_WEB : stub agar console/OLED tetap jalan
+WifiInfo wifiInfo() {
+  WifiInfo w{};
+  strlcpy(w.ip, "-", sizeof(w.ip));
+  strlcpy(w.apIp, "-", sizeof(w.apIp));
+  return w;
+}
+void wifiSetCredentials(const char*, const char*) { LOG("[wifi] web/WiFi dinonaktifkan (ENABLE_WEB 0)"); }
+#endif  // ENABLE_WEB

@@ -50,12 +50,13 @@ void setup() {
   delay(50);
   LOG_SERIAL.println();
   LOG_SERIAL.println("==================================================");
-  LOG_SERIAL.println(" CAIR - Smarter Air Purifier (ESP32-S3 + FreeRTOS)");
+  LOG_SERIAL.println(" CAIR - Smarter Air Purifier (" BOARD_NAME " + FreeRTOS)");
   LOG_SERIAL.printf (" build %s %s\n", __DATE__, __TIME__);
   LOG_SERIAL.println("==================================================");
 
   LOG("[sys] reset   : %s", resetReasonStr(esp_reset_reason()));
   LOG("[sys] board   : %s", BOARD_NAME);
+  LOG("[sys] fitur   : RemoteXY BLE %s, web WiFi %s", ENABLE_REMOTEXY ? "ON" : "OFF", ENABLE_WEB ? "ON" : "OFF");
   LOG("[sys] chip    : %s rev%d, %d core, %lu MHz", ESP.getChipModel(), ESP.getChipRevision(),
       ESP.getChipCores(), (unsigned long)ESP.getCpuFreqMHz());
   LOG("[sys] flash   : %lu KB, PSRAM %lu KB", (unsigned long)(ESP.getFlashChipSize() / 1024),
@@ -106,8 +107,12 @@ void setup() {
   startTask(consoleTask, "console", 4096, 2, 0);
   startTask(displayTask, "display", 4096, 1, 0);
   startTask(envTask,     "env",     4096, 2, 1);
+#if ENABLE_REMOTEXY
   startTask(remotexyTask, "remotexy", 8192, 2, 0);
+#endif
+#if ENABLE_WEB
   startTask(webTask,     "web",     8192, 2, 0);
+#endif
   LOG("[sys] setup selesai, heap free %lu B", (unsigned long)ESP.getFreeHeap());
 }
 

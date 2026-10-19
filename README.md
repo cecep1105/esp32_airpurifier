@@ -60,7 +60,19 @@ Catatan D1 R32:
 - LED satu warna memakai pola kedip: singkat tiap 3 s = aman, 1 Hz = mulai naik, 2.5 Hz = bahaya,
   menyala terus = sangat bahaya, kedip ganda = sensor PM error, sangat cepat = kipas macet.
   Punya WS2812? sambungkan DIN ke GPIO2 (atau pin lain) dan set `LED_WS2812 1`.
-- RAM lebih kecil (tanpa PSRAM). Perhatikan `heap free` di log boot; bila < ~40 KB, matikan BLE atau web.
+- RAM ESP32 klasik tidak cukup untuk BLE + WiFi bersamaan, jadi **RemoteXY (BLE) otomatis OFF** di D1 R32;
+  kontrol lewat dashboard web.
+
+### Saklar fitur
+
+Default di `include/config.h` (S3: RemoteXY ON + web ON, D1 R32: RemoteXY OFF + web ON).
+Bisa ditimpa per environment di `platformio.ini`, contoh pakai BLE saja di D1 R32:
+
+```ini
+build_flags = -DBOARD_D1R32 -DENABLE_REMOTEXY=1 -DENABLE_WEB=0
+```
+
+Log boot menampilkan status: `[sys] fitur   : RemoteXY BLE OFF, web WiFi ON`.
 
 ## Wiring ESP32-S3 (default `config.h`)
 

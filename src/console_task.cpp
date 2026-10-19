@@ -185,7 +185,7 @@ void consoleTask(void*) {
   size_t n = 0;
   uint32_t lastLog = 0;
 
-  OUT.println("\nCAIR air purifier - ESP32-S3");
+  OUT.println("\nCAIR air purifier - " BOARD_NAME);
   printCfg();
   OUT.println("ketik 'help' untuk daftar perintah");
 

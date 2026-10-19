@@ -30,6 +30,10 @@
   #define PIN_RGB           2       // LED biru onboard (atau DIN WS2812 eksternal)
   #define LED_WS2812        0       // 0 = LED satu warna (pola kedip), 1 = WS2812
   #define RELAY_ACTIVE_HIGH 1       // modul relay "low-level trigger": set 0
+  // RAM ESP32 klasik tidak cukup untuk BLE + WiFi bersamaan -> RemoteXY dimatikan
+  #ifndef ENABLE_REMOTEXY
+    #define ENABLE_REMOTEXY 0
+  #endif
 #else
 // ================= ESP32-S3-DevKitC-1 + shield khurslabs ===============
   #define BOARD_NAME        "ESP32-S3-DevKitC-1"
@@ -48,6 +52,15 @@
   #define PIN_RGB           48      // RGB onboard WS2812: v1.0 = 48, v1.1 = 38
   #define LED_WS2812        1
   #define RELAY_ACTIVE_HIGH 1       // 0 jika relay ON saat pin LOW
+#endif
+
+// ---- Fitur konektivitas (default per board di atas; bisa ditimpa lewat
+//      build_flags di platformio.ini, mis. -DENABLE_REMOTEXY=0) ----
+#ifndef ENABLE_REMOTEXY
+  #define ENABLE_REMOTEXY 1         // app RemoteXY via BLE
+#endif
+#ifndef ENABLE_WEB
+  #define ENABLE_WEB      1         // WiFi AP/STA + dashboard web
 #endif
 
 // ---- UART0 : serial monitor / console ----

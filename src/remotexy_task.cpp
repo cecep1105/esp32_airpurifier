@@ -1,5 +1,7 @@
 #include "app.h"
 #include "log.h"
+
+#if ENABLE_REMOTEXY   // seluruh file (dan stack BLE) hanya ikut bila RemoteXY aktif
 #include "remotexy_gui.h"
 
 // Pemetaan GUI:
@@ -104,3 +106,5 @@ void remotexyTask(void*) {
     vTaskDelay(pdMS_TO_TICKS(20));
   }
 }
+
+#endif  // ENABLE_REMOTEXY
