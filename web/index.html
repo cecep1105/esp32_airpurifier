@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f1720">
+<title>CAIR Air Purifier</title>
+<style>
+:root{--bg:#eef2f5;--card:#fff;--text:#13202b;--muted:#64748b;--line:#e2e8f0;--soft:#f5f7fa;
+--c0:#1f9d63;--c1:#d4a20b;--c2:#ea6f17;--c3:#d63434;--off:#94a3b8;--acc:#2563eb;--r:18px}
+@media (prefers-color-scheme:dark){:root{--bg:#0b1117;--card:#141c25;--text:#e6edf3;--muted:#8b98a8;
+--line:#243041;--soft:#1b2531;--acc:#4f8cff}}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);
+font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-tap-highlight-color:transparent}
+main{max-width:520px;margin:0 auto;padding:12px 14px calc(28px + env(safe-area-inset-bottom))}
+header{display:flex;align-items:center;justify-content:space-between;padding:6px 2px 12px}
+.brand b{font-size:20px;letter-spacing:.5px}.brand small{display:block;color:var(--muted);font-size:12px}
+.pills{display:flex;gap:6px}
+.pill{font-size:11px;padding:4px 9px;border-radius:99px;background:var(--card);border:1px solid var(--line);
+color:var(--muted);display:flex;align-items:center;gap:5px;white-space:nowrap}
+.pill i{width:7px;height:7px;border-radius:50%;background:var(--off)}
+.pill.on i{background:var(--c0)}.pill.bad i{background:var(--c3)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin-bottom:12px}
+h2{font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:0 0 12px;
+display:flex;justify-content:space-between;align-items:center}
+.hero{display:flex;align-items:center;gap:14px}
+.gauge{position:relative;width:150px;height:150px;flex:none}
+.gauge svg{width:100%;height:100%;transform:rotate(135deg)}
+.gauge .bg{stroke:var(--soft)}.gauge .fg{transition:stroke-dasharray .6s,stroke .4s}
+.gauge .val{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.gauge .val b{font-size:38px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.gauge .val span{font-size:12px;color:var(--muted);margin-top:4px}
+.hero-r{flex:1;min-width:0}
+.chip{display:inline-block;padding:5px 11px;border-radius:99px;font-weight:700;font-size:13px;color:#fff;background:var(--off)}
+.hero-r .lbl{color:var(--muted);font-size:12px;margin-top:10px}
+.hero-r .num{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}
+.hero-r .num small{font-size:12px;color:var(--muted);font-weight:400}
+.advice{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.advice li{padding:10px 12px;border-radius:12px;background:var(--soft);border-left:4px solid var(--off);font-size:14px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.tile{background:var(--soft);border-radius:14px;padding:10px}
+.tile .k{font-size:11px;color:var(--muted)}
+.tile .v{font-size:21px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:2px;white-space:nowrap}
+.tile .v small{font-size:11px;font-weight:400;color:var(--muted)}
+.tile .s{font-size:11px;margin-top:2px;font-weight:600;color:var(--muted)}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);background:var(--soft);border-radius:12px;padding:4px;gap:4px}
+.seg button{border:0;background:transparent;color:var(--muted);padding:10px 4px;border-radius:9px;font:inherit;font-weight:600}
+.seg button.act{background:var(--card);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.15)}
+.fanrow{display:flex;align-items:flex-end;justify-content:space-between;margin:16px 0 8px}
+.big{font-size:44px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.big small{font-size:16px;color:var(--muted);font-weight:500}
+.meta{text-align:right;font-size:13px;color:var(--muted)}.meta b{color:var(--text);font-variant-numeric:tabular-nums}
+.bar{height:8px;background:var(--soft);border-radius:99px;overflow:hidden;position:relative}
+.bar i{position:absolute;inset:0 auto 0 0;background:var(--acc);border-radius:99px;transition:width .4s}
+.bar u{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--text);opacity:.5;transition:left .4s}
+.ctl{display:flex;gap:10px;align-items:center;margin-top:14px}
+.ctl input{flex:1}
+.rb{width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--soft);color:var(--text);
+font-size:22px;font-weight:600;flex:none}
+input[type=range]{accent-color:var(--acc);height:28px}
+.hint{font-size:12px;color:var(--muted);margin-top:8px}
+.warn{color:var(--c3);font-weight:600}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tabs button{border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:99px;
+padding:5px 11px;font:inherit;font-size:12px;font-weight:600}
+.tabs button.act{background:var(--text);color:var(--card);border-color:var(--text)}
+canvas{width:100%;height:170px;display:block;margin-top:10px}
+.row{display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:12px;color:var(--muted)}
+a{color:var(--acc);font-weight:600;text-decoration:none}
+details.card{padding:0}
+details summary{list-style:none;padding:16px;font-weight:600;cursor:pointer;display:flex;justify-content:space-between}
+details summary::-webkit-details-marker{display:none}
+details summary:after{content:"\203A";transform:rotate(90deg);color:var(--muted);font-size:20px;line-height:1}
+details[open] summary:after{transform:rotate(-90deg)}
+details .in{padding:0 16px 16px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+td,th{padding:6px 4px;text-align:left}th{color:var(--muted);font-weight:500;font-size:12px}
+td .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}
+input[type=number],input[type=text],input[type=password]{width:100%;padding:9px 10px;border-radius:10px;
+border:1px solid var(--line);background:var(--soft);color:var(--text);font:inherit}
+label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btns{display:flex;gap:8px;margin-top:14px}
+.btn{flex:1;padding:11px;border-radius:12px;border:0;background:var(--acc);color:#fff;font:inherit;font-weight:600}
+.btn.sec{background:var(--soft);color:var(--text);border:1px solid var(--line)}
+.msg{font-size:13px;margin-top:10px;min-height:1em}
+.nets{list-style:none;padding:0;margin:10px 0 0;display:grid;gap:6px}
+.nets li{padding:9px 12px;background:var(--soft);border-radius:10px;display:flex;justify-content:space-between;cursor:pointer}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px}.kv span{color:var(--muted)}
+footer{text-align:center;color:var(--muted);font-size:12px;margin-top:6px}
+.dim{opacity:.45}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <div class="brand"><b>CAIR</b><small>Smart Air Purifier</small></div>
+  <div class="pills"><span class="pill" id="pLive"><i></i>Live</span><span class="pill" id="pBle"><i></i>BLE</span></div>
+</header>
+
+<section class="card">
+  <div class="hero">
+    <div class="gauge">
+      <svg viewBox="0 0 120 120"><circle class="bg" cx="60" cy="60" r="52" fill="none" stroke-width="11"
+        stroke-dasharray="245 327" stroke-linecap="round"/><circle id="gFg" class="fg" cx="60" cy="60" r="52"
+        fill="none" stroke-width="11" stroke-dasharray="0 327" stroke-linecap="round"/></svg>
+      <div class="val"><b id="pm25">--</b><span>PM2.5 µg/m³</span></div>
+    </div>
+    <div class="hero-r">
+      <span class="chip" id="cat">MENUNGGU</span>
+      <div class="lbl">PM10</div><div class="num" id="pm10">-- <small>µg/m³</small></div>
+      <div class="lbl">PM2.5 sesaat</div><div class="num" id="pmNow">-- <small>µg/m³</small></div>
+    </div>
+  </div>
+</section>
+
+<section class="card"><h2>Saran</h2><ul class="advice" id="advice"></ul></section>
+
+<section class="card">
+  <h2>Lingkungan <span id="ensTag"></span></h2>
+  <div class="grid">
+    <div class="tile"><div class="k">Suhu</div><div class="v" id="t">--<small>°C</small></div></div>
+    <div class="tile"><div class="k">Kelembaban</div><div class="v" id="rh">--<small>%</small></div></div>
+    <div class="tile"><div class="k">eCO₂</div><div class="v" id="co2">--<small>ppm</small></div><div class="s" id="co2s"></div></div>
+    <div class="tile"><div class="k">TVOC</div><div class="v" id="tvoc">--<small>ppb</small></div></div>
+    <div class="tile"><div class="k">AQI (UBA)</div><div class="v" id="aqi">--<small>/5</small></div><div class="s" id="aqis"></div></div>
+    <div class="tile"><div class="k">Kipas</div><div class="v" id="rpmT">--<small>rpm</small></div></div>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Kipas <span id="relay" class="pill"><i></i>Relay</span></h2>
+  <div class="seg" id="seg">
+    <button data-m="auto">Otomatis</button><button data-m="fixed">Manual</button><button data-m="pot">Potensio</button>
+  </div>
+  <div class="fanrow">
+    <div class="big"><span id="duty">--</span><small>%</small></div>
+    <div class="meta">target <b id="target">--</b>%<br><b id="rpm">--</b> rpm</div>
+  </div>
+  <div class="bar"><i id="dutyBar" style="width:0"></i><u id="tgtMark" style="left:0"></u></div>
+  <div class="ctl" id="ctl">
+    <button class="rb" id="minus" aria-label="kurangi">−</button>
+    <input type="range" id="slider" min="0" max="100" step="1" value="0" aria-label="kecepatan manual">
+    <button class="rb" id="plus" aria-label="tambah">+</button>
+  </div>
+  <div class="hint" id="fanHint"></div>
+</section>
+
+<section class="card">
+  <h2>Riwayat 2 jam <a href="/api/history.csv" download>Unduh CSV</a></h2>
+  <div class="tabs" id="tabs">
+    <button data-k="pm25" class="act">PM2.5</button><button data-k="eco2">eCO₂</button>
+    <button data-k="temp">Suhu</button><button data-k="rh">RH</button><button data-k="fan">Kipas</button>
+  </div>
+  <canvas id="chart"></canvas>
+  <div class="row"><span id="chMin"></span><span id="chMax"></span></div>
+</section>
+
+<details class="card" id="cfgBox">
+  <summary>Pengaturan mode otomatis</summary>
+  <div class="in">
+    <table>
+      <tr><th>Kategori PM2.5</th><th>Mulai dari (µg/m³)</th><th>Kipas (%)</th></tr>
+      <tr><td><span class="dot" style="background:var(--c0)"></span>Aman</td><td>0</td><td><input type="number" id="d0" min="0" max="100"></td></tr>
+      <tr><td><span class="dot" style="background:var(--c1)"></span>Cenderung</td><td><input type="number" id="th1" step="0.1"></td><td><input type="number" id="d1" min="0" max="100"></td></tr>
+      <tr><td><span class="dot" style="background:var(--c2)"></span>Bahaya</td><td><input type="number" id="th2" step="0.1"></td><td><input type="number" id="d2" min="0" max="100"></td></tr>
+      <tr><td><span class="dot" style="background:var(--c3)"></span>Sgt bahaya</td><td><input type="number" id="th3" step="0.1"></td><td><input type="number" id="d3" min="0" max="100"></td></tr>
+    </table>
+    <div class="two">
+      <div><label for="fault">Kipas saat sensor error (%)</label><input type="number" id="fault" min="0" max="100"></div>
+      <div><label for="slew">Laju perubahan (%/detik)</label><input type="number" id="slew" min="0" max="100"></div>
+      <div><label for="hyst">Histeresis (µg/m³)</label><input type="number" id="hyst" step="0.1" min="0" max="10"></div>
+      <div><label for="avg">Rata-rata (sampel)</label><input type="number" id="avg" min="1" max="30"></div>
+    </div>
+    <div class="btns"><button class="btn sec" id="cfgDef">Default</button><button class="btn" id="cfgSave">Simpan</button></div>
+    <div class="msg" id="cfgMsg"></div>
+  </div>
+</details>
+
+<details class="card" id="wifiBox">
+  <summary>WiFi &amp; koneksi</summary>
+  <div class="in">
+    <div class="kv" id="netInfo"></div>
+    <label for="ssid">SSID router</label><input type="text" id="ssid" autocomplete="off" maxlength="32">
+    <label for="pass">Password</label><input type="password" id="pass" maxlength="64">
+    <div class="btns"><button class="btn sec" id="scan">Cari jaringan</button><button class="btn" id="wSave">Sambungkan</button></div>
+    <ul class="nets" id="nets"></ul>
+    <div class="btns"><button class="btn sec" id="wForget">Lupakan router</button></div>
+    <div class="msg" id="wMsg"></div>
+  </div>
+</details>
+
+<footer id="foot">menghubungkan…</footer>
+</main>
+<script>
+const $=s=>document.querySelector(s);
+const CAT=['AMAN','CENDERUNG TIDAK AMAN','BAHAYA','SANGAT BAHAYA'];
+const CC=['--c0','--c1','--c2','--c3'];
+const CO2N=['Baik','Sedang','Buruk','Sangat buruk'];
+const AQIN=['','Sangat baik','Baik','Sedang','Buruk','Tidak sehat'];
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+let st=null,drag=false,chartKey='pm25',hist=null,failN=0;
+
+async function api(p,body){
+  const o=body?{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams(body)}:{};
+  const r=await fetch(p,o);const j=await r.json();
+  if(!r.ok)throw new Error(j.error||('HTTP '+r.status));return j;
+}
+const f1=v=>v==null?'--':v.toFixed(1);
+const f0=v=>v==null?'--':Math.round(v);
+function setV(id,v,u){$(id).innerHTML=v+'<small>'+u+'</small>'}
+function pill(el,state){el.classList.toggle('on',state===true);el.classList.toggle('bad',state==='bad')}
+
+async function poll(){
+  try{st=await api('/api/status');failN=0;render()}
+  catch(e){if(++failN>2)pill($('#pLive'),'bad')}
+  finally{setTimeout(poll,1000)}
+}
+
+function render(){
+  const p=st.pm,e=st.env,f=st.fan,n=st.net;
+  pill($('#pLive'),true);pill($('#pBle'),n.ble);
+  // hero
+  const col=p.ok?css(CC[p.cat]):css('--off');
+  $('#pm25').textContent=f1(p.avg);
+  const max=st.th[2]*2,frac=p.ok?Math.min(p.avg/max,1):0;
+  const g=$('#gFg');g.setAttribute('stroke-dasharray',(245*frac).toFixed(1)+' 327');g.setAttribute('stroke',col);
+  const chip=$('#cat');chip.style.background=col;
+  chip.textContent=p.ok?CAT[p.cat]:({WAIT:'MENUNGGU SENSOR',TIMEOUT:'SENSOR ERROR',SLEEP:'SENSOR SLEEP'})[p.state]||'—';
+  $('#pm10').innerHTML=f1(p.pm10)+' <small>µg/m³</small>';
+  $('#pmNow').innerHTML=f1(p.pm25)+' <small>µg/m³</small>';
+  // env
+  setV('#t',f1(e.t),'°C');setV('#rh',f0(e.rh),'%');setV('#co2',f0(e.eco2),'ppm');
+  setV('#tvoc',f0(e.tvoc),'ppb');setV('#aqi',f0(e.aqi),'/5');setV('#rpmT',f0(f.rpm),'rpm');
+  const cs=$('#co2s');
+  if(e.co2ok){cs.textContent=CO2N[e.co2lvl];cs.style.color=css(CC[e.co2lvl])}else cs.textContent='';
+  $('#aqis').textContent=e.aqi?AQIN[e.aqi]:'';
+  $('#ensTag').innerHTML=!e.ens?'<span class="warn">ENS160 offline</span>':e.val==1?'pemanasan…':e.val==2?'fase start-up':'';
+  ['#co2','#tvoc','#aqi'].forEach(id=>$(id).parentNode.classList.toggle('dim',!e.ens||e.val==1));
+  // fan
+  document.querySelectorAll('#seg button').forEach(b=>b.classList.toggle('act',b.dataset.m===f.mode));
+  $('#duty').textContent=f0(f.duty);$('#target').textContent=f0(f.target);$('#rpm').textContent=f.relay?f0(f.rpm):'0';
+  $('#dutyBar').style.width=f.duty+'%';$('#tgtMark').style.left='calc('+f.target+'% - 1px)';
+  pill($('#relay'),f.relay);
+  const man=f.mode==='fixed';
+  $('#ctl').classList.toggle('dim',!man);
+  if(!drag)$('#slider').value=f.fixed;
+  $('#fanHint').innerHTML=f.stall?'<span class="warn">Kipas tidak berputar (rpm 0). Periksa kipas, kabel TACH & pull-up.</span>':
+    f.mode==='auto'?'Kecepatan mengikuti kategori PM2.5.':f.mode==='pot'?'Kecepatan diatur potensiometer di alat.':
+    'Geser untuk mengatur kecepatan manual.';
+  advise();
+  // net
+  $('#netInfo').innerHTML='<span>Router</span><b>'+(n.sta?esc(n.ssid)+' · '+n.ip+' ('+n.rssi+' dBm)':(n.ssid?'menyambung ke '+esc(n.ssid)+'…':'belum diatur'))+
+    '</b><span>Hotspot alat</span><b>'+(n.apOn?esc(n.ap)+' · '+n.apIp:'mati')+'</b><span>Alamat</span><b>http://cair.local</b>';
+  const up=st.up,h=Math.floor(up/3600),m=Math.floor(up%3600/60);
+  $('#foot').textContent=(st.time?st.time+' · ':'')+'aktif '+h+' j '+m+' m';
+}
+function esc(s){return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+
+function advise(){
+  const p=st.pm,e=st.env,f=st.fan,L=[];
+  const add=(lvl,t)=>L.push([lvl,t]);
+  if(!p.ok)add(3,p.state==='WAIT'?'Menunggu data sensor PM (SDS011).':'Sensor PM tidak terbaca — periksa kabel/daya SDS011.');
+  else[[0,'Udara bersih. Kipas berjalan pelan untuk menjaga sirkulasi.'],
+    [1,'PM2.5 mulai naik. Kipas dipercepat; hindari membuka jendela ke arah jalan.'],
+    [2,'PM2.5 tinggi. Tutup jendela & pintu, biarkan purifier bekerja.'],
+    [3,'PM2.5 sangat tinggi! Kurangi aktivitas fisik, pakai masker bila perlu.']].forEach(a=>{if(a[0]==p.cat)add(a[0],a[1])});
+  if(e.co2ok&&e.co2lvl>=1){
+    const pmHi=p.ok&&p.cat>=2;
+    if(e.co2lvl>=2)add(e.co2lvl,'eCO₂ '+e.eco2+' ppm — ruangan pengap. '+(pmHi?
+      'Buka ventilasi sebentar (5–10 menit) di sisi yang jauh dari sumber debu, lalu tutup lagi.':
+      'Buka jendela/ventilasi beberapa menit. Purifier menyaring debu, tidak menurunkan CO₂.'));
+    else add(1,'eCO₂ mulai naik ('+e.eco2+' ppm). Pertimbangkan ventilasi.');
+  }
+  if(e.ens&&e.val==1)add(0,'ENS160 sedang pemanasan (±3 menit), nilai eCO₂/TVOC belum valid.');
+  if(st.env.rh!=null){if(e.rh>70)add(1,'Kelembaban '+Math.round(e.rh)+'% — risiko jamur & tungau.');
+    else if(e.rh<30)add(1,'Udara kering ('+Math.round(e.rh)+'%).')}
+  if(e.t!=null&&e.t>32)add(1,'Suhu ruangan '+e.t.toFixed(1)+' °C, cukup panas.');
+  if(f.stall)add(3,'Kipas macet: duty '+Math.round(f.duty)+'% tetapi rpm 0.');
+  $('#advice').innerHTML=L.sort((a,b)=>b[0]-a[0]).map(a=>'<li style="border-left-color:var('+CC[a[0]]+')">'+a[1]+'</li>').join('');
+}
+
+// ---- kontrol kipas ----
+document.querySelectorAll('#seg button').forEach(b=>b.onclick=async()=>{
+  try{st=await api('/api/mode',{mode:b.dataset.m});render()}catch(e){alertMsg(e)}});
+const sl=$('#slider');
+sl.addEventListener('pointerdown',()=>drag=true);
+sl.addEventListener('input',()=>{drag=true;$('#duty').textContent=sl.value});
+sl.addEventListener('change',()=>setDuty(+sl.value));
+async function setDuty(d){d=Math.max(0,Math.min(100,d));
+  try{st=await api('/api/fan',{duty:d});render()}catch(e){alertMsg(e)}finally{drag=false}}
+$('#minus').onclick=()=>setDuty((st?st.fan.fixed:0)-5);
+$('#plus').onclick=()=>setDuty((st?st.fan.fixed:0)+5);
+function alertMsg(e){$('#fanHint').innerHTML='<span class="warn">'+esc(e.message)+'</span>'}
+
+// ---- grafik ----
+const SER={pm25:{i:1,u:'µg/m³',d:1},eco2:{i:2,u:'ppm',d:0},temp:{i:3,u:'°C',d:1},rh:{i:4,u:'%',d:0},fan:{i:5,u:'%',d:0}};
+document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>{chartKey=b.dataset.k;
+  document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('act',x===b));draw()});
+async function loadHist(){try{hist=await api('/api/history');draw()}catch(e){}finally{setTimeout(loadHist,30000)}}
+function draw(){
+  const c=$('#chart'),dpr=devicePixelRatio||1,W=c.clientWidth,H=c.clientHeight;
+  c.width=W*dpr;c.height=H*dpr;const x=c.getContext('2d');x.scale(dpr,dpr);x.clearRect(0,0,W,H);
+  const s=SER[chartKey];
+  if(!hist||!hist.rows.length){x.fillStyle=css('--muted');x.font='13px system-ui';x.fillText('Belum ada data',10,H/2);return}
+  const R=hist.rows,pts=R.map(r=>[r[0],r[s.i]]),vals=pts.map(p=>p[1]).filter(v=>v!=null);
+  const t0=R[0][0],t1=Math.max(R[R.length-1][0],t0+60);
+  let lo=vals.length?Math.min(...vals):0,hi=vals.length?Math.max(...vals):1;
+  let lines=[];
+  if(chartKey==='pm25'&&st)lines=st.th.map((v,i)=>[v,CC[i+1]]);
+  if(chartKey==='eco2'&&st)lines=st.co2th.map((v,i)=>[v,CC[i+1]]);
+  if(chartKey==='pm25'||chartKey==='fan'||chartKey==='eco2')lo=Math.min(lo,0);
+  lines.forEach(l=>{if(l[0]<=hi*1.3)hi=Math.max(hi,l[0])});
+  if(hi-lo<1)hi=lo+1;const pad=(hi-lo)*.1;hi+=pad;if(lo>0)lo=Math.max(0,lo-pad);
+  const L=4,T=6,B=H-16,X=v=>L+(v-t0)/(t1-t0)*(W-L-4),Y=v=>B-(v-lo)/(hi-lo)*(B-T);
+  x.lineWidth=1;x.setLineDash([4,4]);
+  lines.forEach(l=>{if(l[0]>hi)return;x.strokeStyle=css(l[1]);x.globalAlpha=.6;x.beginPath();x.moveTo(L,Y(l[0]));x.lineTo(W,Y(l[0]));x.stroke()});
+  x.globalAlpha=1;x.setLineDash([]);
+  const acc=chartKey==='pm25'?css(CC[st?Math.max(0,st.pm.cat):0]):css('--acc');
+  x.strokeStyle=acc;x.lineWidth=2;x.lineJoin='round';x.beginPath();let on=false;
+  pts.forEach(p=>{if(p[1]==null){on=false;return}const px=X(p[0]),py=Y(p[1]);on?x.lineTo(px,py):x.moveTo(px,py);on=true});
+  x.stroke();
+  x.fillStyle=css('--muted');x.font='11px system-ui';
+  const mins=Math.round((t1-t0)/60);x.fillText(mins+' menit lalu',L,H-2);
+  const now='sekarang',w=x.measureText(now).width;x.fillText(now,W-w-2,H-2);
+  $('#chMin').textContent=vals.length?'min '+Math.min(...vals).toFixed(s.d)+' '+s.u:'';
+  $('#chMax').textContent=vals.length?'maks '+Math.max(...vals).toFixed(s.d)+' '+s.u:'';
+}
+addEventListener('resize',draw);
+
+// ---- pengaturan ----
+const CF=['th1','th2','th3','d0','d1','d2','d3','fault','slew','hyst','avg'];
+function fillCfg(c){$('#th1').value=c.th[0];$('#th2').value=c.th[1];$('#th3').value=c.th[2];
+  c.duty.forEach((v,i)=>$('#d'+i).value=v);['fault','slew','hyst','avg'].forEach(k=>$('#'+k).value=c[k])}
+$('#cfgBox').addEventListener('toggle',async e=>{if(e.target.open)try{fillCfg(await api('/api/config'))}catch(x){}});
+$('#cfgSave').onclick=async()=>{const b={};CF.forEach(k=>b[k]=$('#'+k).value);
+  try{fillCfg(await api('/api/config',b));msg('#cfgMsg','Tersimpan.',0)}catch(e){msg('#cfgMsg',e.message,3)}};
+$('#cfgDef').onclick=async()=>{try{fillCfg(await api('/api/config/defaults',{}));msg('#cfgMsg','Dikembalikan ke default.',0)}
+  catch(e){msg('#cfgMsg',e.message,3)}};
+function msg(id,t,l){const m=$(id);m.textContent=t;m.style.color=css(CC[l])}
+
+// ---- wifi ----
+$('#scan').onclick=async()=>{msg('#wMsg','Mencari jaringan…',1);
+  try{const L=await api('/api/wifi/scan');L.sort((a,b)=>b.rssi-a.rssi);
+    $('#nets').innerHTML=L.map(n=>'<li data-s="'+esc(n.ssid)+'"><span>'+(n.lock?'🔒 ':'')+esc(n.ssid)+'</span><span>'+n.rssi+' dBm</span></li>').join('');
+    document.querySelectorAll('#nets li').forEach(li=>li.onclick=()=>{$('#ssid').value=li.dataset.s;$('#pass').focus()});
+    msg('#wMsg',L.length+' jaringan ditemukan.',0)}catch(e){msg('#wMsg',e.message,3)}};
+$('#wSave').onclick=async()=>{const s=$('#ssid').value.trim();if(!s){msg('#wMsg','Isi SSID dulu.',3);return}
+  try{await api('/api/wifi',{ssid:s,pass:$('#pass').value});
+    msg('#wMsg','Menyambung… alamat IP baru akan tampil di atas. Hotspot alat tetap aktif.',0)}catch(e){msg('#wMsg',e.message,3)}};
+$('#wForget').onclick=async()=>{try{await api('/api/wifi',{ssid:'',pass:''});msg('#wMsg','Router dilupakan.',0)}catch(e){msg('#wMsg',e.message,3)}};
+
+poll();loadHist();
+</script>
+</body>
+</html>
