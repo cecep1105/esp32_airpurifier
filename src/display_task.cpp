@@ -40,7 +40,7 @@ void displayTask(void*) {
     uint32_t now = millis();
     bool fresh  = sensorFresh(sd, s, now);
     bool thOk   = envThFresh(e, now);
-    bool co2Ok  = e.ensOk && e.ensMs && (now - e.ensMs) < 10000;
+    bool co2Ok  = envCo2Fresh(e, now);
     bool wifiOk = WiFi.status() == WL_CONNECTED;
 
     oled.clearDisplay();
@@ -71,7 +71,7 @@ void displayTask(void*) {
     else       oled.print("PM10  --.-");
     oled.setCursor(68, 33);
     if (!co2Ok)                  oled.print("CO2  ---");
-    else if (e.ensValidity == 1) oled.print("CO2 WARM");
+    else if (envCo2Warm(e))      oled.print("CO2 WARM");
     else                         oled.printf("CO2%5u", e.eco2);
 
     // kategori + suhu/RH

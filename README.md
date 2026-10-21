@@ -1,7 +1,7 @@
 # CAIR — Smarter Air Purifier (ESP32-S3 + FreeRTOS)
 
 Firmware PlatformIO untuk ESP32-S3-DevKitC-1 (+ GPIO shield khurslabs) atau WEMOS D1 R32:
-baca PM2.5/PM10 (SDS011, UART1), suhu/RH (AHT21) dan eCO2/TVOC (ENS160) via I2C, atur kipas AUTO / POT / FIXED,
+baca PM2.5/PM10 dalam (SDS011) dan luar ruangan (ZH03B), CO2 asli (SCD40), suhu/RH (AHT21), TVOC/AQI (ENS160), atur kipas AUTO / POT / FIXED,
 tampil di OLED 0.96", RGB onboard, app RemoteXY (BLE) dan dashboard web (WiFi). Console + log di UART0 (port USB "UART").
 Selama sensor belum ada, `tools/sds011_sim.py` berperan sebagai SDS011.
 
@@ -19,6 +19,8 @@ src/fan_task.cpp       logika kipas, PWM 25 kHz, LED, tombol mode
 src/display_task.cpp   OLED SSD1306
 src/console_task.cpp   CLI di UART0
 src/env_task.cpp       driver ENS160 + AHT21 (tanpa library)
+src/scd40_task.cpp     driver SCD40 CO2 NDIR (tanpa library)
+src/zh03b_task.cpp     ZH03B PM luar ruangan (UART)
 src/remotexy_task.cpp  app RemoteXY via BLE
 src/web_task.cpp       WiFi AP/STA, REST API, riwayat, CSV
 src/settings.cpp       NVS load/save
@@ -52,6 +54,8 @@ Di VS Code pilih environment lewat status bar bawah (`env:...`). Peta pin tiap b
 | TACH kipas + pull-up 10k ke 3V3 | 27 | D6 |
 | Potensio (ADC1) | 34 | A3 |
 | Tombol mode (ke GND) | 14 | D7 |
+| ZH03B TX → ESP RX | 19 | D12 |
+| ESP TX → ZH03B RX | 23 | D11 |
 | LED indikator | 2 | LED biru onboard |
 
 Catatan D1 R32:
@@ -72,7 +76,19 @@ Bisa ditimpa per environment di `platformio.ini`, contoh pakai BLE saja di D1 R3
 build_flags = -DBOARD_D1R32 -DENABLE_REMOTEXY=1 -DENABLE_WEB=0
 ```
 
-Log boot menampilkan status: `[sys] fitur   : RemoteXY BLE OFF, web WiFi ON`.
+Sensor tambahan: `ENABLE_ZH03B 1`, `ENABLE_SCD40 1` (set 0 untuk mematikan task-nya).
+
+Log boot menampilkan status: `[sys] fitur   : RemoteXY BLE OFF, web WiFi ON, ZH03B ON, SCD40 ON`.
+
+### Sensor tambahan
+
+- **ZH03B** (PM luar): VCC **5 V**, GND bersama, logika 3.3 V (langsung ke ESP). Mode initiative upload, frame tiap ±1 s.
+  Tidak ada frame > 5 s → OFFLINE (nilai luar `--`).
+- **SCD40** (CO2 NDIR): I2C 0x62, VCC 3.3 V, satu bus dengan OLED/AHT21/ENS160. Data tiap 5 s (baca pertama ±6 s setelah boot).
+- Sumber CO2: SCD40 menulis variabel yang sama (`g_env.eco2` / `value_CO2`). ENS160 tetap ada (tidak dihapus):
+  TVOC & AQI tetap dari ENS160, eCO2-nya hanya dipakai bila SCD40 tidak ada/offline.
+- Suhu/RH: AHT21 diutamakan; SCD40 jadi cadangan bila AHT21 tidak ada.
+- RemoteXY: `value_pm25ext` = PM2.5 luar (rata-rata).
 
 ## Wiring ESP32-S3 (default `config.h`)
 
@@ -81,13 +97,15 @@ Log boot menampilkan status: `[sys] fitur   : RemoteXY BLE OFF, web WiFi ON`.
 | UART0 console / log | 43 / 44 | port USB "UART" (juga untuk upload), 115200 |
 | UART1 RX ← TX SDS011 / TX USB-TTL | 18 | simulator via USB-TTL 3.3 V, 9600 |
 | UART1 TX → RX SDS011 / RX USB-TTL | 17 | |
-| I2C SDA / SCL | 8 / 9 | OLED 0x3C, AHT21 0x38, ENS160 0x53 (bus sama, paralel) |
+| I2C SDA / SCL | 8 / 9 | OLED 0x3C, AHT21 0x38, ENS160 0x53, SCD40 0x62 (bus sama, paralel) |
 | PWM kipas | 5 | ke pin PWM (biru) kipas 4-pin |
 | TACH kipas | 7 | kabel TACH (hijau/kuning) + pull-up 10k ke 3V3 |
 | Relay daya kipas | 47 | Relay1 shield, memutus +12 V kipas |
 | Potensio (wiper) | 4 | ujung potensio ke 3V3 dan GND |
 | RGB onboard | 48 | WS2812 di board (v1.1 = 38); bila mati, jembatani pad solder "RGB" |
 | Tombol mode | 0 | tombol BOOT di board |
+| UART2 RX ← TX ZH03B | 16 | header UART shield, 9600 |
+| UART2 TX → RX ZH03B | 15 | |
 
 Pinout shield khurslabs tidak saya verifikasi — cocokkan label header shield lalu ubah `config.h` bila beda.
 SDS011 asli: TX sensor → GPIO18, RX sensor → GPIO17, VCC 5 V, GND bersama (logika SDS011 3.3 V, aman langsung).
@@ -120,8 +138,9 @@ eCO2 tidak memengaruhi kecepatan kipas (filter tidak menurunkan CO2) — hanya p
 
 - Hotspot alat selalu aktif: **CAIR-XXXX**, password `cair1234` → halaman terbuka otomatis (captive portal) atau buka `http://192.168.4.1`.
 - Sambungkan ke router lewat menu *WiFi & koneksi* di halaman, atau console `wifi <ssid> <password>`; lalu buka `http://cair.local` atau IP yang tampil di log.
-- Isi: PM2.5/PM10, suhu, RH, eCO2, TVOC, AQI, saran otomatis, kontrol kipas (Otomatis/Manual/Potensio + slider), grafik 2 jam, unduh CSV, pengaturan batas & duty.
+- Isi: PM2.5/PM10, kartu **PM2.5 dalam vs luar** (Δ = dalam − luar; negatif = dalam lebih bersih, plus % efisiensi bila luar ≥ 5 µg/m³), CO2 (sumber SCD40/ENS160), suhu, RH, TVOC, AQI, saran otomatis, kontrol kipas (Otomatis/Manual/Potensio + slider), grafik 2 jam (garis penuh = dalam, putus-putus = luar), unduh CSV, pengaturan batas & duty.
 - Saat terhubung ke router, waktu disinkron NTP (WIB) sehingga CSV berisi kolom waktu.
+- Kolom CSV: `waktu,uptime_s,pm25_dalam_ugm3,pm25_luar_ugm3,delta_pm25_ugm3,pm10_dalam_ugm3,co2_ppm,co2_sumber,suhu_c,rh_pct,kipas_pct,rpm`.
 - Ubah tampilan: edit `web/index.html`, build ulang (header gzip dibuat otomatis).
 
 API: `GET /api/status`, `POST /api/mode` (mode=auto|fixed|pot), `POST /api/fan` (duty=0..100),

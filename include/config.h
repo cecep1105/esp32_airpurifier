@@ -20,6 +20,9 @@
   #define PIN_SDS_RX        16      // D5  <- TX sensor / TX USB-TTL
   #define PIN_SDS_TX        17      // D4  -> RX sensor / RX USB-TTL
   #define SDS_SERIAL        Serial2 // pin bawaan UART1 (9/10) dipakai flash
+  #define PIN_ZH_RX         19      // D12 <- TX ZH03B (PM2.5 luar)
+  #define PIN_ZH_TX         23      // D11 -> RX ZH03B
+  #define ZH_SERIAL         Serial1 // UART1 dipindah ke pin bebas
   #define PIN_I2C_SDA       21      // header SDA
   #define PIN_I2C_SCL       22      // header SCL
   #define PIN_FAN_PWM       25      // D3
@@ -42,6 +45,9 @@
   #define PIN_SDS_RX        18      // <- TX sensor / TX USB-TTL
   #define PIN_SDS_TX        17      // -> RX sensor / RX USB-TTL
   #define SDS_SERIAL        Serial1
+  #define PIN_ZH_RX         16      // header UART shield "16/RX" <- TX ZH03B (PM2.5 luar)
+  #define PIN_ZH_TX         15      // header UART shield "15/TX" -> RX ZH03B
+  #define ZH_SERIAL         Serial2
   #define PIN_I2C_SDA       8
   #define PIN_I2C_SCL       9
   #define PIN_FAN_PWM       5
@@ -62,6 +68,12 @@
 #ifndef ENABLE_WEB
   #define ENABLE_WEB      1         // WiFi AP/STA + dashboard web
 #endif
+#ifndef ENABLE_ZH03B
+  #define ENABLE_ZH03B    1         // PM2.5 luar ruangan (UART)
+#endif
+#ifndef ENABLE_SCD40
+  #define ENABLE_SCD40    1         // CO2 NDIR (I2C 0x62); ENS160 jadi cadangan
+#endif
 
 // ---- UART0 : serial monitor / console ----
 #define LOG_BAUD          115200
@@ -73,8 +85,16 @@
 #endif
 #define LOG_VERBOSE       1       // 1 = log tiap frame sensor/reply, 0 = event penting saja
 
-// ---- SDS011 ----
+// ---- SDS011 (PM dalam ruangan) ----
 #define SDS_BAUD          9600
+
+// ---- ZH03B (PM luar ruangan), mode initiative upload 1 s ----
+#define ZH_BAUD           9600
+#define OUT_TIMEOUT_MS    5000    // tanpa frame selama ini = sensor luar offline
+#define OUT_EFF_MIN_PM    5.0f    // efektivitas (%) hanya dihitung bila PM luar >= ini
+
+// ---- SCD40 (CO2 NDIR) ----
+#define SCD40_ADDR        0x62
 
 // ---- I2C bus: OLED 0.96" SSD1306 128x64 + ENS160 (0x53) + AHT21 (0x38) ----
 #define OLED_ADDR         0x3C

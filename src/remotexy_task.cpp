@@ -10,7 +10,9 @@
 //  circularBar_01  PM2.5 rata-rata, 100% = RXY_BAR_FULL_PM ug/m3
 //  value_status    kategori / status sensor
 //  value_fanspeed  duty kipas (%), value_fanrpm rpm dari tach
-//  value_temp/rh   AHT21, value_CO2 eCO2 ENS160 (0 = belum ada / offline)
+//  value_temp/rh   AHT21 (cadangan SCD40)
+//  value_CO2       CO2 SCD40 (cadangan eCO2 ENS160), 0 = belum ada / offline
+//  value_pm25ext   PM2.5 luar ruangan (ZH03B, rata-rata), 0 = offline
 
 static void setStatus(const char* s) {
   strncpy(RemoteXY.value_status, s, sizeof(RemoteXY.value_status) - 1);
@@ -101,7 +103,9 @@ void remotexyTask(void*) {
     RemoteXY.value_fanrpm   = (int16_t)(fs.rpm > 32767 ? 32767 : fs.rpm);
     RemoteXY.value_temp     = envThFresh(env, now) ? env.t : 0.0f;
     RemoteXY.value_rh       = envThFresh(env, now) ? (int8_t)lroundf(env.rh) : 0;
-    RemoteXY.value_CO2      = (env.ensOk && env.ensMs && now - env.ensMs < 10000) ? (int16_t)(env.eco2 > 32767 ? 32767 : env.eco2) : 0;
+    RemoteXY.value_CO2      = envCo2Fresh(env, now) ? (int16_t)(env.eco2 > 32767 ? 32767 : env.eco2) : 0;
+    OutdoorData od; { Lock l; od = g_out; }
+    RemoteXY.value_pm25ext  = outFresh(od, now) ? od.pm25Avg : 0.0f;
 
     vTaskDelay(pdMS_TO_TICKS(20));
   }

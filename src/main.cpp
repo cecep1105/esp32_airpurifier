@@ -7,6 +7,8 @@
 //    console (core0, prio 2) : UART0 CLI + log status
 //    remotexy(core0, prio 2) : RemoteXY via BLE (app HP)
 //    env     (core1, prio 2) : ENS160 + AHT21 (I2C), 1 Hz
+//    scd40   (core1, prio 2) : SCD40 CO2 NDIR (I2C), data tiap 5 s
+//    zh03b   (core1, prio 3) : ZH03B PM luar ruangan (UART)
 //    web     (core0, prio 2) : WiFi AP/STA + web dashboard + riwayat
 // =====================================================================
 #include "app.h"
@@ -21,6 +23,7 @@ FanState          g_fan;
 QueueHandle_t     g_sdsQ;
 volatile bool     g_displayOk = false;
 EnvData           g_env;
+OutdoorData       g_out;
 SemaphoreHandle_t g_i2cMtx;
 volatile bool     g_bleConnected = false;
 
@@ -56,7 +59,8 @@ void setup() {
 
   LOG("[sys] reset   : %s", resetReasonStr(esp_reset_reason()));
   LOG("[sys] board   : %s", BOARD_NAME);
-  LOG("[sys] fitur   : RemoteXY BLE %s, web WiFi %s", ENABLE_REMOTEXY ? "ON" : "OFF", ENABLE_WEB ? "ON" : "OFF");
+  LOG("[sys] fitur   : RemoteXY BLE %s, web WiFi %s, ZH03B %s, SCD40 %s", ENABLE_REMOTEXY ? "ON" : "OFF",
+      ENABLE_WEB ? "ON" : "OFF", ENABLE_ZH03B ? "ON" : "OFF", ENABLE_SCD40 ? "ON" : "OFF");
   LOG("[sys] chip    : %s rev%d, %d core, %lu MHz", ESP.getChipModel(), ESP.getChipRevision(),
       ESP.getChipCores(), (unsigned long)ESP.getCpuFreqMHz());
   LOG("[sys] flash   : %lu KB, PSRAM %lu KB", (unsigned long)(ESP.getFlashChipSize() / 1024),
@@ -64,7 +68,8 @@ void setup() {
   LOG("[sys] heap    : free %lu / %lu B", (unsigned long)ESP.getFreeHeap(), (unsigned long)ESP.getHeapSize());
   LOG("[sys] SDK     : %s", ESP.getSdkVersion());
   LOG("[pin] UART0 console RX=%d TX=%d @%d", PIN_LOG_RX, PIN_LOG_TX, LOG_BAUD);
-  LOG("[pin] SDS011 RX=%d TX=%d @%d", PIN_SDS_RX, PIN_SDS_TX, SDS_BAUD);
+  LOG("[pin] SDS011 RX=%d TX=%d @%d (PM dalam)", PIN_SDS_RX, PIN_SDS_TX, SDS_BAUD);
+  LOG("[pin] ZH03B  RX=%d TX=%d @%d (PM luar)", PIN_ZH_RX, PIN_ZH_TX, ZH_BAUD);
   LOG("[pin] I2C SDA=%d SCL=%d OLED=0x%02X", PIN_I2C_SDA, PIN_I2C_SCL, OLED_ADDR);
   LOG("[pin] FAN PWM=%d (%d Hz, %d bit)  TACH=%d  RELAY=%d", PIN_FAN_PWM, FAN_PWM_FREQ, FAN_PWM_RES,
       PIN_FAN_TACH, PIN_FAN_RELAY);
@@ -82,7 +87,8 @@ void setup() {
   for (uint8_t a = 1; a < 127; a++) {
     Wire.beginTransmission(a);
     if (Wire.endTransmission() == 0) {
-      const char* n = a == OLED_ADDR ? "OLED" : a == 0x38 ? "AHT21" : (a == 0x53 || a == 0x52) ? "ENS160" : "?";
+      const char* n = a == OLED_ADDR ? "OLED" : a == 0x38 ? "AHT21" : (a == 0x53 || a == 0x52) ? "ENS160"
+                    : a == SCD40_ADDR ? "SCD40" : "?";
       LOG("[i2c] device di 0x%02X (%s)", a, n);
       found++;
     }
@@ -107,6 +113,12 @@ void setup() {
   startTask(consoleTask, "console", 4096, 2, 0);
   startTask(displayTask, "display", 4096, 1, 0);
   startTask(envTask,     "env",     4096, 2, 1);
+#if ENABLE_SCD40
+  startTask(scd40Task,   "scd40",   3072, 2, 1);
+#endif
+#if ENABLE_ZH03B
+  startTask(zh03bTask,   "zh03b",   3072, 3, 1);
+#endif
 #if ENABLE_REMOTEXY
   startTask(remotexyTask, "remotexy", 8192, 2, 0);
 #endif

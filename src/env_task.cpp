@@ -4,6 +4,8 @@
 //   AHT21  : 0x38, trigger 0xAC 0x33 0x00, data 7 byte (CRC8 0x31)
 //   ENS160 : 0x53 (ADDR=1) / 0x52 (ADDR=0), register map datasheet ScioSense
 //  Suhu & RH dari AHT21 dikirim ke ENS160 sebagai kompensasi.
+//  Bila SCD40 terpasang, nilai CO2 (g_env.eco2) diambil dari SCD40; ENS160
+//  tetap membaca TVOC/AQI dan menjadi cadangan CO2 bila SCD40 tidak ada.
 // =====================================================================
 #include "app.h"
 #include "log.h"
@@ -177,6 +179,7 @@ void envTask(void*) {
         ahtFail = 0;
         Lock l;
         g_env.t = t; g_env.rh = rh; g_env.ahtMs = now; g_env.ahtOk = true;
+        g_env.thMs = now; g_env.thSrc = TH_SRC_AHT21;       // AHT21 = sumber utama suhu/RH
       } else if (++ahtFail >= 5) {
         ahtOk = false; ahtFail = 0;
         { Lock l; g_env.ahtOk = false; }
@@ -202,7 +205,10 @@ void envTask(void*) {
         g_env.ensOk = true;
         g_env.ensValidity = v;
         if (r == 1) {
-          g_env.aqi = aqi; g_env.tvoc = tvoc; g_env.eco2 = eco2; g_env.ensMs = now;
+          g_env.aqi = aqi; g_env.tvoc = tvoc; g_env.ensMs = now;
+          // eCO2 ENS160 hanya dipakai bila SCD40 (CO2 asli) tidak aktif
+          bool scdActive = g_env.co2Src == CO2_SRC_SCD40 && (now - g_env.co2Ms) < 15000;
+          if (!scdActive) { g_env.eco2 = eco2; g_env.co2Ms = now; g_env.co2Src = CO2_SRC_ENS160; }
         }
       }
     }

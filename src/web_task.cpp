@@ -165,7 +165,9 @@ struct HistSample {
   uint32_t epoch;    // 0 = waktu belum sinkron
   int16_t  pm25;     // x10, -1 = tidak valid
   int16_t  pm10;     // x10
-  int16_t  eco2;     // ppm, -1
+  int16_t  eco2;     // ppm CO2 (SCD40 / eCO2 ENS160), -1
+  int16_t  pmOut;    // PM2.5 luar x10, -1
+  uint8_t  co2Src;   // CO2_SRC_*
   int16_t  temp;     // x10, INT16_MIN = tidak valid
   int8_t   rh;       // %, -1
   uint8_t  fan;      // %
@@ -186,8 +188,11 @@ static void historyTick(uint32_t now) {
   bool pm = sensorFresh(sd, s, now);
   h.pm25  = pm ? (int16_t)lroundf(sd.pm25Avg * 10) : -1;
   h.pm10  = pm ? (int16_t)lroundf(sd.pm10 * 10) : -1;
-  bool co2 = e.ensOk && e.ensMs && (now - e.ensMs) < 10000 && e.ensValidity != 1;
+  bool co2 = envCo2Fresh(e, now) && !envCo2Warm(e);
   h.eco2  = co2 ? (int16_t)(e.eco2 > 32767 ? 32767 : e.eco2) : -1;
+  h.co2Src = co2 ? e.co2Src : (uint8_t)CO2_SRC_NONE;
+  OutdoorData od; { Lock l; od = g_out; }
+  h.pmOut = outFresh(od, now) ? (int16_t)lroundf(od.pm25Avg * 10) : -1;
   bool th = envThFresh(e, now);
   h.temp  = th ? (int16_t)lroundf(e.t * 10) : INT16_MIN;
   h.rh    = th ? (int8_t)lroundf(e.rh) : -1;
@@ -253,9 +258,12 @@ static void hStatus() {
   bool pm = sensorFresh(sd, s, now);
   bool th = envThFresh(e, now);
   bool ensFresh = e.ensOk && e.ensMs && (now - e.ensMs) < 10000;
+  bool co2Fresh = envCo2Fresh(e, now);
+  OutdoorData od; { Lock l; od = g_out; }
+  bool out = outFresh(od, now);
   WifiInfo w = wifiInfo();
 
-  String o; o.reserve(900);
+  String o; o.reserve(1100);
   o += '{';
   jInt(o, "up", now / 1000); o += ',';
   char tbuf[24] = "";
@@ -273,12 +281,28 @@ static void hStatus() {
   jNum(o, "pm10", sd.pm10, 1, pm); o += ',';
   jInt(o, "cat", fs.category); o += "},";
 
+  // PM2.5 luar (ZH03B) + perbandingan dalam vs luar
+  o += "\"out\":{";
+  jBool(o, "ok", out); o += ',';
+  jStr(o, "state", out ? "OK" : od.everValid ? "TIMEOUT" : "WAIT"); o += ',';
+  jNum(o, "pm25", od.pm25, 0, out); o += ',';
+  jNum(o, "avg", od.pm25Avg, 1, out); o += ',';
+  jNum(o, "pm10", od.pm10, 0, out); o += ',';
+  jNum(o, "pm1", od.pm1, 0, out); o += ',';
+  bool both = out && pm;
+  jNum(o, "delta", sd.pm25Avg - od.pm25Avg, 1, both); o += ',';         // dalam - luar
+  bool effOk = both && od.pm25Avg >= OUT_EFF_MIN_PM;
+  jNum(o, "eff", effOk ? (od.pm25Avg - sd.pm25Avg) * 100.0f / od.pm25Avg : 0, 0, effOk); o += "},";
+
   o += "\"env\":{";
   jBool(o, "aht", e.ahtOk); o += ',';
   jBool(o, "ens", e.ensOk); o += ',';
+  jBool(o, "scd", e.scdOk); o += ',';
+  jInt(o, "co2src", co2Fresh ? e.co2Src : 0); o += ',';
+  jInt(o, "thsrc", th ? e.thSrc : 0); o += ',';
   jNum(o, "t", e.t, 1, th); o += ',';
   jNum(o, "rh", e.rh, 0, th); o += ',';
-  jNum(o, "eco2", e.eco2, 0, ensFresh); o += ',';
+  jNum(o, "eco2", e.eco2, 0, co2Fresh); o += ',';
   jNum(o, "tvoc", e.tvoc, 0, ensFresh); o += ',';
   jNum(o, "aqi", e.aqi, 0, ensFresh); o += ',';
   jInt(o, "val", e.ensValidity); o += ',';
@@ -405,7 +429,9 @@ static void hHistory() {
     if (h.temp != INT16_MIN) { snprintf(b, sizeof(b), "%.1f", h.temp / 10.0f); o += b; } else o += "null";
     o += ',';
     if (h.rh >= 0) o += (int)h.rh; else o += "null";
-    o += ','; o += (int)h.fan; o += ']';
+    o += ','; o += (int)h.fan; o += ',';
+    if (h.pmOut >= 0) { snprintf(b, sizeof(b), "%.1f", h.pmOut / 10.0f); o += b; } else o += "null";
+    o += ']';
     if (o.length() > 1200) { server.sendContent(o); o = ""; }
   }
   o += "]}";
@@ -417,19 +443,23 @@ static void hHistoryCsv() {
   server.setContentLength(CONTENT_LENGTH_UNKNOWN);
   server.sendHeader("Content-Disposition", "attachment; filename=\"cair_riwayat.csv\"");
   server.send(200, "text/csv", "");
-  String o = "waktu,uptime_s,pm25_ugm3,pm10_ugm3,eco2_ppm,suhu_c,rh_pct,kipas_pct,rpm\n";
-  char b[96];
+  String o = "waktu,uptime_s,pm25_dalam_ugm3,pm25_luar_ugm3,delta_pm25_ugm3,pm10_dalam_ugm3,co2_ppm,co2_sumber,"
+             "suhu_c,rh_pct,kipas_pct,rpm\n";
+  char b[160];
   for (uint16_t i = 0; i < s_histCount; i++) {
     const HistSample& h = histAt(i);
     char ts[24] = "";
     if (h.epoch) { time_t t = h.epoch; struct tm tmv; localtime_r(&t, &tmv); strftime(ts, sizeof(ts), "%Y-%m-%d %H:%M:%S", &tmv); }
-    char pm25[8] = "", pm10[8] = "", co2[8] = "", tc[8] = "", rh[6] = "";
+    char pm25[8] = "", pm10[8] = "", co2[8] = "", tc[8] = "", rh[6] = "", pmo[8] = "", dlt[10] = "";
     if (h.pm25 >= 0) snprintf(pm25, sizeof(pm25), "%.1f", h.pm25 / 10.0f);
+    if (h.pmOut >= 0) snprintf(pmo, sizeof(pmo), "%.1f", h.pmOut / 10.0f);
+    if (h.pm25 >= 0 && h.pmOut >= 0) snprintf(dlt, sizeof(dlt), "%.1f", (h.pm25 - h.pmOut) / 10.0f);
     if (h.pm10 >= 0) snprintf(pm10, sizeof(pm10), "%.1f", h.pm10 / 10.0f);
     if (h.eco2 >= 0) snprintf(co2, sizeof(co2), "%d", h.eco2);
     if (h.temp != INT16_MIN) snprintf(tc, sizeof(tc), "%.1f", h.temp / 10.0f);
     if (h.rh >= 0) snprintf(rh, sizeof(rh), "%d", h.rh);
-    snprintf(b, sizeof(b), "%s,%lu,%s,%s,%s,%s,%s,%u,%u\n", ts, (unsigned long)h.up, pm25, pm10, co2, tc, rh, h.fan, h.rpm);
+    snprintf(b, sizeof(b), "%s,%lu,%s,%s,%s,%s,%s,%s,%s,%s,%u,%u\n", ts, (unsigned long)h.up, pm25, pmo, dlt, pm10, co2,
+             h.co2Src == CO2_SRC_SCD40 ? "SCD40" : h.co2Src == CO2_SRC_ENS160 ? "ENS160" : "", tc, rh, h.fan, h.rpm);
     o += b;
     if (o.length() > 1200) { server.sendContent(o); o = ""; }
   }

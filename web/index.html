@@ -90,6 +90,13 @@ label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px}
 .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px}.kv span{color:var(--muted)}
 footer{text-align:center;color:var(--muted);font-size:12px;margin-top:6px}
 .dim{opacity:.45}
+.io{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.io>div{background:var(--soft);border-radius:14px;padding:10px}
+.io .k{font-size:11px;color:var(--muted)}
+.io .v{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:2px;white-space:nowrap}
+.io .v small{font-size:11px;font-weight:400;color:var(--muted)}
+.cmp{display:grid;gap:8px;margin-top:14px}
+.cmpRow{display:grid;grid-template-columns:44px 1fr;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -115,6 +122,20 @@ footer{text-align:center;color:var(--muted);font-size:12px;margin-top:6px}
   </div>
 </section>
 
+<section class="card">
+  <h2>PM2.5 dalam vs luar <span id="outTag"></span></h2>
+  <div class="io">
+    <div><div class="k">Dalam</div><div class="v" id="ioIn">--<small>µg/m³</small></div></div>
+    <div><div class="k">Luar</div><div class="v" id="ioOut">--<small>µg/m³</small></div></div>
+    <div><div class="k">Δ dalam − luar</div><div class="v" id="ioDelta">--<small>µg/m³</small></div></div>
+  </div>
+  <div class="cmp">
+    <div class="cmpRow"><span>Dalam</span><div class="bar"><i id="barIn" style="width:0"></i></div></div>
+    <div class="cmpRow"><span>Luar</span><div class="bar"><i id="barOut" style="width:0"></i></div></div>
+  </div>
+  <div class="hint" id="ioHint"></div>
+</section>
+
 <section class="card"><h2>Saran</h2><ul class="advice" id="advice"></ul></section>
 
 <section class="card">
@@ -122,7 +143,7 @@ footer{text-align:center;color:var(--muted);font-size:12px;margin-top:6px}
   <div class="grid">
     <div class="tile"><div class="k">Suhu</div><div class="v" id="t">--<small>°C</small></div></div>
     <div class="tile"><div class="k">Kelembaban</div><div class="v" id="rh">--<small>%</small></div></div>
-    <div class="tile"><div class="k">eCO₂</div><div class="v" id="co2">--<small>ppm</small></div><div class="s" id="co2s"></div></div>
+    <div class="tile"><div class="k" id="co2k">CO₂</div><div class="v" id="co2">--<small>ppm</small></div><div class="s" id="co2s"></div></div>
     <div class="tile"><div class="k">TVOC</div><div class="v" id="tvoc">--<small>ppb</small></div></div>
     <div class="tile"><div class="k">AQI (UBA)</div><div class="v" id="aqi">--<small>/5</small></div><div class="s" id="aqis"></div></div>
     <div class="tile"><div class="k">Kipas</div><div class="v" id="rpmT">--<small>rpm</small></div></div>
@@ -150,7 +171,7 @@ footer{text-align:center;color:var(--muted);font-size:12px;margin-top:6px}
 <section class="card">
   <h2>Riwayat 2 jam <a href="/api/history.csv" download>Unduh CSV</a></h2>
   <div class="tabs" id="tabs">
-    <button data-k="pm25" class="act">PM2.5</button><button data-k="eco2">eCO₂</button>
+    <button data-k="pm25" class="act">PM2.5</button><button data-k="eco2">CO₂</button>
     <button data-k="temp">Suhu</button><button data-k="rh">RH</button><button data-k="fan">Kipas</button>
   </div>
   <canvas id="chart"></canvas>
@@ -236,8 +257,12 @@ function render(){
   const cs=$('#co2s');
   if(e.co2ok){cs.textContent=CO2N[e.co2lvl];cs.style.color=css(CC[e.co2lvl])}else cs.textContent='';
   $('#aqis').textContent=e.aqi?AQIN[e.aqi]:'';
-  $('#ensTag').innerHTML=!e.ens?'<span class="warn">ENS160 offline</span>':e.val==1?'pemanasan…':e.val==2?'fase start-up':'';
-  ['#co2','#tvoc','#aqi'].forEach(id=>$(id).parentNode.classList.toggle('dim',!e.ens||e.val==1));
+  $('#co2k').textContent=e.co2src==1?'eCO₂':'CO₂';
+  $('#ensTag').innerHTML=e.co2src==2?'CO₂: SCD40':e.co2src==1?('eCO₂: ENS160'+(e.val==1?' · pemanasan…':e.val==2?' · start-up':'')):
+    '<span class="warn">sensor CO₂ offline</span>';
+  $('#co2').parentNode.classList.toggle('dim',!e.co2src||(e.co2src==1&&e.val==1));
+  ['#tvoc','#aqi'].forEach(id=>$(id).parentNode.classList.toggle('dim',!e.ens||e.val==1));
+  renderIO(p,st.out,col);
   // fan
   document.querySelectorAll('#seg button').forEach(b=>b.classList.toggle('act',b.dataset.m===f.mode));
   $('#duty').textContent=f0(f.duty);$('#target').textContent=f0(f.target);$('#rpm').textContent=f.relay?f0(f.rpm):'0';
@@ -256,6 +281,25 @@ function render(){
   const up=st.up,h=Math.floor(up/3600),m=Math.floor(up%3600/60);
   $('#foot').textContent=(st.time?st.time+' · ':'')+'aktif '+h+' j '+m+' m';
 }
+function catOf(v){let c=0;while(c<3&&v>=st.th[c])c++;return c}
+function renderIO(p,o,colIn){
+  setV('#ioIn',f1(p.avg),'µg/m³');setV('#ioOut',f1(o.avg),'µg/m³');
+  const d=o.delta,dEl=$('#ioDelta');
+  dEl.innerHTML=(d==null?'--':(d>0?'+':'')+d.toFixed(1))+'<small>µg/m³</small>';
+  dEl.style.color=d==null?'':css(d>1?'--c3':d< -1?'--c0':'--text');
+  const mx=Math.max(p.ok?p.avg:0,o.ok?o.avg:0,st.th[2]);
+  const bi=$('#barIn'),bo=$('#barOut');
+  bi.style.width=(p.ok?p.avg/mx*100:0)+'%';bi.style.background=colIn;
+  bo.style.width=(o.ok?o.avg/mx*100:0)+'%';bo.style.background=o.ok?css(CC[catOf(o.avg)]):css('--off');
+  $('#outTag').innerHTML=o.ok?'':'<span class="warn">'+(o.state==='WAIT'?'menunggu ZH03B':'ZH03B offline')+'</span>';
+  let h='';
+  if(d!=null){
+    if(d< -1)h='Udara dalam '+(o.eff!=null?Math.round(o.eff)+'% ':'')+'lebih bersih dari luar.';
+    else if(d>1)h='Udara dalam lebih kotor dari luar. Cari sumber debu di dalam, atau buka jendela bila udara luar bersih.';
+    else h='PM2.5 dalam ≈ luar.';
+  }else if(!o.ok)h='Sensor luar belum terbaca; delta tidak dihitung.';
+  $('#ioHint').textContent=h;
+}
 function esc(s){return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 
 function advise(){
@@ -266,14 +310,20 @@ function advise(){
     [1,'PM2.5 mulai naik. Kipas dipercepat; hindari membuka jendela ke arah jalan.'],
     [2,'PM2.5 tinggi. Tutup jendela & pintu, biarkan purifier bekerja.'],
     [3,'PM2.5 sangat tinggi! Kurangi aktivitas fisik, pakai masker bila perlu.']].forEach(a=>{if(a[0]==p.cat)add(a[0],a[1])});
+  const o=st.out,outOk=o&&o.ok,C=e.co2src==1?'eCO₂':'CO₂';
   if(e.co2ok&&e.co2lvl>=1){
     const pmHi=p.ok&&p.cat>=2;
-    if(e.co2lvl>=2)add(e.co2lvl,'eCO₂ '+e.eco2+' ppm — ruangan pengap. '+(pmHi?
-      'Buka ventilasi sebentar (5–10 menit) di sisi yang jauh dari sumber debu, lalu tutup lagi.':
-      'Buka jendela/ventilasi beberapa menit. Purifier menyaring debu, tidak menurunkan CO₂.'));
-    else add(1,'eCO₂ mulai naik ('+e.eco2+' ppm). Pertimbangkan ventilasi.');
+    let vent;
+    if(outOk)vent=catOf(o.avg)>=2?'Udara luar juga berdebu ('+f1(o.avg)+' µg/m³): buka ventilasi singkat 5–10 menit saja, lalu tutup lagi.':
+      'Udara luar relatif bersih ('+f1(o.avg)+' µg/m³): buka jendela/ventilasi beberapa menit.';
+    else vent=pmHi?'Buka ventilasi sebentar (5–10 menit) di sisi yang jauh dari sumber debu, lalu tutup lagi.':
+      'Buka jendela/ventilasi beberapa menit.';
+    if(e.co2lvl>=2)add(e.co2lvl,C+' '+e.eco2+' ppm — ruangan pengap. '+vent+' Purifier menyaring debu, tidak menurunkan CO₂.');
+    else add(1,C+' mulai naik ('+e.eco2+' ppm). Pertimbangkan ventilasi.');
   }
-  if(e.ens&&e.val==1)add(0,'ENS160 sedang pemanasan (±3 menit), nilai eCO₂/TVOC belum valid.');
+  if(outOk&&p.ok&&p.cat>=1&&catOf(o.avg)==0&&o.avg<p.avg-5)
+    add(1,'Udara luar lebih bersih ('+f1(o.avg)+' µg/m³) daripada di dalam — membuka jendela sebentar bisa membantu.');
+  if(e.co2src==1&&e.val==1)add(0,'ENS160 sedang pemanasan (±3 menit), nilai eCO₂/TVOC belum valid.');
   if(st.env.rh!=null){if(e.rh>70)add(1,'Kelembaban '+Math.round(e.rh)+'% — risiko jamur & tungau.');
     else if(e.rh<30)add(1,'Udara kering ('+Math.round(e.rh)+'%).')}
   if(e.t!=null&&e.t>32)add(1,'Suhu ruangan '+e.t.toFixed(1)+' °C, cukup panas.');
@@ -295,7 +345,7 @@ $('#plus').onclick=()=>setDuty((st?st.fan.fixed:0)+5);
 function alertMsg(e){$('#fanHint').innerHTML='<span class="warn">'+esc(e.message)+'</span>'}
 
 // ---- grafik ----
-const SER={pm25:{i:1,u:'µg/m³',d:1},eco2:{i:2,u:'ppm',d:0},temp:{i:3,u:'°C',d:1},rh:{i:4,u:'%',d:0},fan:{i:5,u:'%',d:0}};
+const SER={pm25:{i:1,i2:6,u:'µg/m³',d:1},eco2:{i:2,u:'ppm',d:0},temp:{i:3,u:'°C',d:1},rh:{i:4,u:'%',d:0},fan:{i:5,u:'%',d:0}};
 document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>{chartKey=b.dataset.k;
   document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('act',x===b));draw()});
 async function loadHist(){try{hist=await api('/api/history');draw()}catch(e){}finally{setTimeout(loadHist,30000)}}
@@ -305,8 +355,10 @@ function draw(){
   const s=SER[chartKey];
   if(!hist||!hist.rows.length){x.fillStyle=css('--muted');x.font='13px system-ui';x.fillText('Belum ada data',10,H/2);return}
   const R=hist.rows,pts=R.map(r=>[r[0],r[s.i]]),vals=pts.map(p=>p[1]).filter(v=>v!=null);
+  const pts2=s.i2?R.map(r=>[r[0],r[s.i2]]):[],vals2=pts2.map(p=>p[1]).filter(v=>v!=null);
+  const all=vals.concat(vals2);
   const t0=R[0][0],t1=Math.max(R[R.length-1][0],t0+60);
-  let lo=vals.length?Math.min(...vals):0,hi=vals.length?Math.max(...vals):1;
+  let lo=all.length?Math.min(...all):0,hi=all.length?Math.max(...all):1;
   let lines=[];
   if(chartKey==='pm25'&&st)lines=st.th.map((v,i)=>[v,CC[i+1]]);
   if(chartKey==='eco2'&&st)lines=st.co2th.map((v,i)=>[v,CC[i+1]]);
@@ -318,14 +370,18 @@ function draw(){
   lines.forEach(l=>{if(l[0]>hi)return;x.strokeStyle=css(l[1]);x.globalAlpha=.6;x.beginPath();x.moveTo(L,Y(l[0]));x.lineTo(W,Y(l[0]));x.stroke()});
   x.globalAlpha=1;x.setLineDash([]);
   const acc=chartKey==='pm25'?css(CC[st?Math.max(0,st.pm.cat):0]):css('--acc');
-  x.strokeStyle=acc;x.lineWidth=2;x.lineJoin='round';x.beginPath();let on=false;
-  pts.forEach(p=>{if(p[1]==null){on=false;return}const px=X(p[0]),py=Y(p[1]);on?x.lineTo(px,py):x.moveTo(px,py);on=true});
-  x.stroke();
+  const line=(P,color,dash)=>{x.strokeStyle=color;x.lineWidth=2;x.lineJoin='round';x.setLineDash(dash);x.beginPath();let on=false;
+    P.forEach(p=>{if(p[1]==null){on=false;return}const px=X(p[0]),py=Y(p[1]);on?x.lineTo(px,py):x.moveTo(px,py);on=true});
+    x.stroke();x.setLineDash([])};
+  if(pts2.length)line(pts2,css('--muted'),[6,4]);
+  line(pts,acc,[]);
   x.fillStyle=css('--muted');x.font='11px system-ui';
   const mins=Math.round((t1-t0)/60);x.fillText(mins+' menit lalu',L,H-2);
   const now='sekarang',w=x.measureText(now).width;x.fillText(now,W-w-2,H-2);
-  $('#chMin').textContent=vals.length?'min '+Math.min(...vals).toFixed(s.d)+' '+s.u:'';
-  $('#chMax').textContent=vals.length?'maks '+Math.max(...vals).toFixed(s.d)+' '+s.u:'';
+  const mm=v=>v.length?Math.min(...v).toFixed(s.d)+'–'+Math.max(...v).toFixed(s.d):'--';
+  if(s.i2){$('#chMin').textContent='━ dalam '+mm(vals)+' · ┅ luar '+mm(vals2)+' '+s.u;$('#chMax').textContent='';}
+  else{$('#chMin').textContent=vals.length?'min '+Math.min(...vals).toFixed(s.d)+' '+s.u:'';
+    $('#chMax').textContent=vals.length?'maks '+Math.max(...vals).toFixed(s.d)+' '+s.u:'';}
 }
 addEventListener('resize',draw);
 

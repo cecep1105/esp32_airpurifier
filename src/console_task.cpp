@@ -24,7 +24,7 @@ static void printHelp() {
     "sds active                SDS011 kirim data tiap 1 s\n"
     "sds query [detik]         SDS011 query mode\n"
     "sds sleep|wake|read       kontrol sensor\n"
-    "env                       suhu, RH, eCO2, TVOC, AQI\n"
+    "env                       suhu, RH, CO2, TVOC, AQI, PM luar\n"
     "wifi                      status WiFi\n"
     "wifi <ssid> [password]    sambung ke router (disimpan)\n"
     "wifi forget               hapus SSID tersimpan\n"
@@ -44,8 +44,13 @@ static void printStatus() {
   }
   EnvData e; { Lock l; e = g_env; }
   uint32_t now = millis();
+  OutdoorData o; { Lock l; o = g_out; }
+  if (outFresh(o, now)) {
+    OUT.printf(" | luar=%.1f", o.pm25Avg);
+    if (sensorFresh(d, s, now)) OUT.printf(" d=%+.1f", d.pm25Avg - o.pm25Avg);
+  }
   if (envThFresh(e, now)) OUT.printf(" | T=%.1f RH=%.0f", e.t, e.rh);
-  if (e.ensOk && e.ensMs) OUT.printf(" eCO2=%u%s", e.eco2, e.ensValidity == 1 ? "(warm)" : "");
+  if (envCo2Fresh(e, now)) OUT.printf(" CO2=%u(%s)%s", e.eco2, co2SrcName(e.co2Src), envCo2Warm(e) ? "warm" : "");
   OUT.printf(" | mode=%s fan=%.0f/%.0f%% rpm=%u rly=%s%s pot=%u | frm=%lu err=%lu%s\n",
              modeName(s.mode), f.outPct, f.targetPct, f.rpm, f.relayOn ? "ON" : "OFF",
              f.stalled ? " MACET" : "", f.potRaw,
@@ -87,9 +92,15 @@ static void handleLine(char* line) {
     EnvData e; { Lock l; e = g_env; }
     static const char* V[4] = {"normal", "warm-up (3 mnt)", "start-up (1 jam pertama)", "invalid"};
     OUT.printf("AHT21 : %s  T=%.1f C  RH=%.1f %%\n", e.ahtOk ? "OK" : "OFFLINE", e.t, e.rh);
-    OUT.printf("ENS160: %s  eCO2=%u ppm (%s)  TVOC=%u ppb  AQI=%u  status=%s\n",
-               e.ensOk ? "OK" : "OFFLINE", e.eco2, co2LevelName(co2Level(e.eco2)), e.tvoc, e.aqi,
-               V[e.ensValidity & 3]);
+    OUT.printf("ENS160: %s  TVOC=%u ppb  AQI=%u  status=%s\n",
+               e.ensOk ? "OK" : "OFFLINE", e.tvoc, e.aqi, V[e.ensValidity & 3]);
+    OUT.printf("SCD40 : %s  T=%.1f C  RH=%.0f %%\n", e.scdOk ? "OK" : "OFFLINE", e.scdT, e.scdRh);
+    OUT.printf("CO2   : %u ppm (%s) dari %s, suhu/RH dari %s\n", e.eco2, co2LevelName(co2Level(e.eco2)),
+               co2SrcName(e.co2Src), e.thSrc == TH_SRC_AHT21 ? "AHT21" : e.thSrc == TH_SRC_SCD40 ? "SCD40" : "-");
+    OutdoorData o; { Lock l; o = g_out; }
+    OUT.printf("ZH03B : %s  PM1=%.0f PM2.5=%.0f (avg %.1f) PM10=%.0f  frm=%lu err=%lu\n",
+               outFresh(o, millis()) ? "OK" : "OFFLINE", o.pm1, o.pm25, o.pm25Avg, o.pm10,
+               (unsigned long)o.frames, (unsigned long)o.errors);
     return;
   }
 
